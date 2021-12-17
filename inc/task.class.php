@@ -304,30 +304,17 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
         }
 
        // Fetch a list of unique actors since the same actor can be assigned to many jobs.
-        $actors = [];
+        $agents = [];
         foreach ($results as $result) {
             $actors_from_job = importArrayFromDB($result['job']['actors']);
             foreach ($actors_from_job as $actor) {
-                $actor_key = "" . key($actor) . "_" . $actor[key($actor)];
-                if (!isset($actors[$actor_key])) {
-                    $actors[$actor_key] = [];
-                    foreach ($this->getAgentsFromActors([$actor], true) as $agent) {
-                        $actors[$actor_key][$agent] = true;
-                    }
+                foreach ($this->getAgentsFromActors([$actor], true) as $agent_id) {
+                    $agents[] = $agent_id;
                 }
             }
         }
 
-       // Merge agents into one list
-        $agents = [];
-        foreach ($actors as $agents_list) {
-            foreach ($agents_list as $id => $val) {
-                if (!isset($agents[$id])) {
-                    $agents[$id] = true;
-                }
-            }
-        }
-        $agents = array_keys($agents);
+        $agents = array_unique($agents);
 
        // Get timeslot's entries from this list at the time of the request (ie. get entries according
        // to the day of the week)
@@ -585,7 +572,7 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
            // Get agents linked to the actors
             $agent_ids = [];
             foreach ($this->getAgentsFromActors($actors) as $agent_id) {
-                $agent_ids[$agent_id] = true;
+                $agent_ids[] = $agent_id;
             }
            //Continue with next job if there are no agents found from actors.
            //TODO: This may be good to report this kind of information. We just need to do a list of
@@ -616,6 +603,7 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
             $limit = 0;
             foreach ($targets as $target) {
                 $agent_ids = $saved_agent_ids;
+                $running_agent_ids = [];
                 $item_type = key($target);
                 $item_id   = current($target);
                 $job_id    = $result['job']['id'];
@@ -629,13 +617,10 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                       PluginGlpiinventoryTaskjobstate::IN_ERROR,
                       PluginGlpiinventoryTaskjobstate::POSTPONED,
                       PluginGlpiinventoryTaskjobstate::CANCELLED]],
-                    'agents_id' => array_keys($agent_ids)]
+                    'agents_id' => $agent_ids]
                 );
                 foreach ($jobstates_running as $jobstate_running) {
-                     $jobstate_agent_id = $jobstate_running['agents_id'];
-                    if (isset($agent_ids[$jobstate_agent_id])) {
-                        $agent_ids[$jobstate_agent_id] = false;
-                    }
+                    $running_agent_ids[] = $jobstate_running['agents_id'];
                 }
 
                // If task have not reprepare_if_successful, do not reprerare
@@ -646,14 +631,11 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                         'items_id' => $item_id,
                         'plugin_glpiinventory_taskjobs_id' => $job_id,
                         'state'    => PluginGlpiinventoryTaskjobstate::FINISHED,
-                        'agents_id'   => array_keys($agent_ids)]
+                        'agents_id'   => $agent_ids]
                     );
 
                     foreach ($jobstates_running as $jobstate_running) {
-                           $jobstate_agent_id = $jobstate_running['agents_id'];
-                        if (isset($agent_ids[$jobstate_agent_id])) {
-                            $agent_ids[$jobstate_agent_id] = false;
-                        }
+                        $running_agent_ids[] = $jobstate_running['agents_id'];
                     }
                 }
 
@@ -670,7 +652,7 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                          PluginGlpiinventoryTaskjobstate::CANCELLED,
                       ]],
                     'NOT' => [
-                     'agents_id' => array_keys($agent_ids)]
+                     'agents_id' => $agent_ids]
                     ]
                 );
                 foreach ($jobstates_tocancel as $jobstate_tocancel) {
@@ -678,8 +660,8 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                      $jobstate->cancel(__('Device no longer defined in definition of job', 'glpiinventory'));
                 }
 
-                foreach ($agent_ids as $agent_id => $agent_not_running) {
-                    if ($agent_not_running) {
+                foreach ($agent_ids as $agent_id) {
+                    if (!in_array($agent_id, $running_agent_ids)) {
                         $limit += 1;
                         if ($limit > 500) {
                             $limit = 0;
