@@ -337,8 +337,8 @@ class NetworkInventoryTest extends TestCase
         $pfTask  = new PluginGlpiinventoryTask();
         $agent = new Agent();
 
-        $pfTask->getFromDBByCrit(['name' => 'network inventory']);
-        $agent->getFromDBByCrit(['name' => 'computer1']);
+        $this->assertTrue($pfTask->getFromDBByCrit(['name' => 'network inventory']));
+        $this->assertTrue($agent->getFromDBByCrit(['name' => 'computer1']));
 
         $data = $pfTask->getJoblogs([$pfTask->fields['id']]);
 
