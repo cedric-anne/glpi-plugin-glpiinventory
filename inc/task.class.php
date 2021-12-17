@@ -748,7 +748,7 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
 
             switch ($itemtype) {
                 case 'Computer':
-                    $computers[$itemid] = 1;
+                    $computers[] = $itemid;
                     break;
 
                 case 'PluginGlpiinventoryDeployGroup':
@@ -757,7 +757,7 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                         [$itemid, $use_cache]
                     );
                     foreach ($group_targets as $computerid) {
-                         $computers[$computerid] = 1;
+                         $computers[] = $computerid;
                     }
                     break;
 
@@ -770,14 +770,14 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                     foreach ($members as $member) {
                         $computers_from_user = $computer->find(['users_id' => $member['id']]);
                         foreach ($computers_from_user as $computer_entry) {
-                             $computers[$computer_entry['id']] = 1;
+                             $computers[] = $computer_entry['id'];
                         }
                     }
 
                    //find computers directly associated with this group
                     $computer_from_group = $computer->find(['groups_id' => $itemid]);
                     foreach ($computer_from_group as $computer_entry) {
-                        $computers[$computer_entry['id']] = 1;
+                        $computers[] = $computer_entry['id'];
                     }
                     break;
 
@@ -785,22 +785,22 @@ class PluginGlpiinventoryTask extends PluginGlpiinventoryTaskView
                 * TODO: The following should be replaced with Dynamic groups
                 */
                 case Agent::class:
-                    $agents[$itemid] = 1;
+                    $agents[] = $itemid;
                     break;
             }
         }
 
        //Get agents from the computer's ids list
         if (count($computers)) {
-            $agents_entries = $agent->find(['itemtype' => 'Computer', 'items_id' => array_keys($computers)]);
+            $agents_entries = $agent->find(['itemtype' => 'Computer', 'items_id' => $computers]);
             foreach ($agents_entries as $agent_entry) {
-                $agents[$agent_entry['id']] = 1;
+                $agents[] = $agent_entry['id'];
             }
         }
 
        // Return the list of agent's ids.
        // (We used hash keys to avoid duplicates in the list)
-        return array_keys($agents);
+        return array_unique($agents);
     }
 
 
