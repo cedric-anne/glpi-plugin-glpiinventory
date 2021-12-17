@@ -318,6 +318,12 @@ class NetworkInventoryTest extends TestCase
         $taskjobId = $pfTaskjob->add($input);
         $this->assertNotFalse($taskjobId);
 
+        $this->assertTrue($pfTaskjob->getFromDB($taskjobId));
+        $this->assertEquals(
+            $pfTask->getAgentsFromActors(importArrayFromDB($pfTaskjob->fields['actors'])),
+            [$agent1Id],
+        );
+
         PluginGlpiinventoryTask::cronTaskscheduler();
     }
 
